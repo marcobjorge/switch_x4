@@ -11,8 +11,10 @@ extern "C" {
   #include "homekit.h"
 }
 
-const uint8_t ACTUATOR_COUNT = 4;
-const uint8_t ACTUATOR_PINS[ACTUATOR_COUNT] = {ACTUATOR1_PIN, ACTUATOR2_PIN, ACTUATOR3_PIN, ACTUATOR4_PIN};
+const uint8_t ACTUATOR_PINS[ACTUATOR_COUNT_MAX] = {ACTUATOR1_PIN, ACTUATOR2_PIN, ACTUATOR3_PIN, ACTUATOR4_PIN};
+volatile bool switch_on[] = {false, false, false, false};
+volatile bool switch_on_updated = false;
+static uint32_t next_report_ms = 0;
 
 void init_debug() {
   Serial.begin(DEBUG_PORT);
@@ -32,7 +34,7 @@ void init_wifi() {
 }
 
 void init_actuators(){
-  for(uint8_t idx=0; idx<ACTUATOR_COUNT ; idx++){
+  for(uint8_t idx=0; idx<ACTUATOR_COUNT_ACTUAL ; idx++){
     pinMode(ACTUATOR_PINS[idx], OUTPUT);
     digitalWrite(ACTUATOR_PINS[idx], HIGH);
   }
@@ -48,17 +50,32 @@ void setup() {
 void loop() {
 	arduino_homekit_loop();
 
+  const uint32_t timestamp = millis();
+  
+  if (switch_on_updated || timestamp > next_report_ms) {
+    // report sensor values every 5 seconds
+    next_report_ms = timestamp + 5 * 1000;
+#if ACTUATOR_COUNT_ACTUAL > 1
+    switch1_on_update(switch_on[0]);
+#endif
+#if ACTUATOR_COUNT_ACTUAL > 2
+    switch2_on_update(switch_on[1]);
+#endif
+#if ACTUATOR_COUNT_ACTUAL > 3
+    switch_on_updated = false;
+#endif
+  }
+  
   delay(50);
 }
-
-volatile bool switch_on[] = {false, false, false, false};
 
 bool switch_on_get(uint8_t id){
   return switch_on[id-1];
 }  
 
 void switch_on_set(uint8_t id, bool value){
-  switch_on[id-1] = !switch_on[id-1];
+  switch_on[id-1] = value;
+  switch_on_updated = true;
   Debug.print(DBG_VERBOSE, "Set actuator %d to %d", id, switch_on[id-1]); 
   if(switch_on[id-1]){
     digitalWrite(ACTUATOR_PINS[id-1], LOW);
