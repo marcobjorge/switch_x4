@@ -21,18 +21,6 @@ void init_debug() {
   Debug.setDebugLevel(DEBUG_LEVEL);
 }
 
-void init_wifi() {
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (!WiFi.isConnected()) {
-    Debug.print(DBG_VERBOSE, "WiFi connecting..."); 
-    delay(250);
-  }
-  Debug.print(DBG_VERBOSE, "WiFi connected (IP is %s)", WiFi.localIP().toString().c_str());
-}
-
 void init_actuators(){
   for(uint8_t idx=0; idx<ACTUATOR_COUNT_ACTUAL ; idx++){
     pinMode(ACTUATOR_PINS[idx], OUTPUT);
@@ -42,8 +30,9 @@ void init_actuators(){
 
 void setup() {
 	init_debug();
+	init_actuators();
+  
 	init_wifi();
-  init_actuators();
   init_homekit(&switch_on_get, &switch_on_set);
 }
 
@@ -53,20 +42,21 @@ void loop() {
   const uint32_t timestamp = millis();
   
   if (switch_on_updated || timestamp > next_report_ms) {
-    // report sensor values every 5 seconds
-    next_report_ms = timestamp + 5 * 1000;
-#if ACTUATOR_COUNT_ACTUAL > 1
+    next_report_ms = timestamp + HOMEKIT_REPORT_PERIOD_MS;
+
     switch1_on_update(switch_on[0]);
-#endif
-#if ACTUATOR_COUNT_ACTUAL > 2
+#if ACTUATOR_COUNT_ACTUAL > 1
     switch2_on_update(switch_on[1]);
 #endif
-#if ACTUATOR_COUNT_ACTUAL > 3
-    switch_on_updated = false;
+#if ACTUATOR_COUNT_ACTUAL > 2
+    switch3_on_update(switch_on[2]);
 #endif
+#if ACTUATOR_COUNT_ACTUAL > 3
+    switch4_on_update(switch_on[3]);
+#endif
+
+    switch_on_updated = false;
   }
-  
-  delay(50);
 }
 
 bool switch_on_get(uint8_t id){
